@@ -1,0 +1,230 @@
+<!-- <!DOCTYPE html>
+<html>
+<head>
+    <title>Feedback Abusive Detector</title>
+</head>
+<body>
+    <h2>Enter Feedback</h2>
+    <form method="POST">
+        <textarea name="feedback" rows="5" cols="40"></textarea><br><br>
+        <button type="submit">Check</button>
+    </form>
+
+    {% if result %}
+        <h3>Result: {{ result }}</h3>
+    {% endif %}
+</body>
+</html> -->
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Feedback Classifier</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #a78bfa;
+      --danger: #ff6b81;
+      --warning: #ffd166;
+      --success: #4ade80;
+      --bg-gradient: radial-gradient(circle at top left, #0d0d0d, #1a1a1a, #121212);
+      --glass-bg: rgba(255, 255, 255, 0.05);
+      --blur: blur(20px);
+      --font: 'Inter', sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: var(--font);
+      background: var(--bg-gradient);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    nav {
+      padding: 18px 40px;
+      backdrop-filter: var(--blur);
+      background: var(--glass-bg);
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+      position: sticky; top: 0;
+    }
+    .logo {
+      font-size: 24px; font-weight: 700;
+      background: linear-gradient(90deg, #ff9a9e, #fad0c4, #a18cd1, #fbc2eb);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 15px rgba(255, 182, 193, 0.5);
+    }
+    .hero {
+      display: flex; justify-content: center; align-items: center;
+      flex: 1; padding: 60px 20px;
+    }
+    .hero-form {
+      width: 100%; max-width: 600px;
+      background: var(--glass-bg); backdrop-filter: var(--blur);
+      padding: 30px; border-radius: 20px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+    .hero-form h2 { margin-bottom: 20px; font-size: 26px; }
+    textarea {
+      width: 100%; height: 120px; padding: 14px;
+      border-radius: 14px; border: none;
+      font-size: 16px; margin-bottom: 20px;
+      background: rgba(255,255,255,0.08); color: #fff;
+    }
+    button {
+      width: 100%; padding: 14px;
+      font-size: 18px; font-weight: 600;
+      border: none; border-radius: 14px;
+      background: linear-gradient(90deg, #a18cd1, #fbc2eb);
+      color: #111;
+      cursor: pointer;
+      box-shadow: 0 0 15px rgba(168, 140, 209, 0.5);
+      transition: transform 0.2s ease;
+    }
+    button:hover { transform: scale(1.05); }
+    #result {
+      margin-top: 20px; font-size: 20px; font-weight: 700;
+      text-align: center; padding: 15px;
+      border-radius: 12px; display: none;
+    }
+    #sentiment {
+      margin-top: 10px; font-size: 18px; font-weight: 600;
+      text-align: center; padding: 12px;
+      border-radius: 12px; display: none;
+    }
+    .abusive { background: rgba(255,107,129,0.15); color: var(--danger); border: 2px solid var(--danger); }
+    .clean { background: rgba(74,222,128,0.15); color: var(--success); border: 2px solid var(--success); }
+    .meaningless { background: rgba(255,209,102,0.15); color: var(--warning); border: 2px solid var(--warning); }
+    .positive { background: rgba(74,222,128,0.15); color: var(--success); border: 2px solid var(--success); }
+    .negative { background: rgba(255,107,129,0.15); color: var(--danger); border: 2px solid var(--danger); }
+    .neutral { background: rgba(167,139,250,0.15); color: var(--primary); border: 2px solid var(--primary); }
+    
+    /* Loading Spinner */
+    .spinner-container {
+      display: none;
+      text-align: center;
+      margin: 20px 0;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto;
+      border: 4px solid rgba(255, 255, 255, 0.2);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .processing-text {
+      margin-top: 10px;
+      color: var(--primary);
+      font-weight: 600;
+    }
+    
+    footer {
+      text-align: center; padding: 15px; color: #aaa; font-size: 14px;
+      background: rgba(0,0,0,0.4);
+    }
+  </style>
+</head>
+<body>
+  <nav><div class="logo">🌌 Feedback Classifier</div></nav>
+
+  <section class="hero">
+    <div class="hero-form">
+      <h2>Test Feedback</h2>
+      <form id="feedbackForm">
+        <textarea id="userInput" placeholder="Enter feedback text..."></textarea>
+        <button type="submit">Check Feedback</button>
+      </form>
+      <div class="spinner-container" id="processingSpinner">
+        <div class="spinner"></div>
+        <div class="processing-text">Analyzing feedback...</div>
+      </div>
+      <div id="result"></div>
+      <div id="sentiment"></div>
+    </div>
+  </section>
+
+  <footer>© 2025 Feedback Classifier | Made with 💖 + AI</footer>
+
+  <script>
+    const form = document.getElementById("feedbackForm");
+    const resultDiv = document.getElementById("result");
+    const sentimentDiv = document.getElementById("sentiment");
+    const spinnerDiv = document.getElementById("processingSpinner");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const userInput = document.getElementById("userInput").value.trim();
+      if (!userInput) return;
+
+      // Hide previous results
+      resultDiv.style.display = "none";
+      sentimentDiv.style.display = "none";
+      
+      // Show processing spinner
+      spinnerDiv.style.display = "block";
+
+      try {
+        const response = await fetch("/check_feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: userInput })
+        });
+        const data = await response.json();
+        
+        // Hide spinner and show results
+        spinnerDiv.style.display = "none";
+        showResult(data);
+      } catch {
+        // Hide spinner and show error
+        spinnerDiv.style.display = "none";
+        showResult({classification: "Meaningless"});
+      }
+    });
+
+    function showResult(data) {
+      resultDiv.style.display = "block";
+      resultDiv.className = ""; // reset
+      sentimentDiv.style.display = "none";
+      sentimentDiv.className = ""; // reset
+
+      if (data.classification === "Abusive") {
+        resultDiv.textContent = "❌ Abusive Feedback";
+        resultDiv.classList.add("abusive");
+      } else if (data.classification === "Clean") {
+        resultDiv.textContent = "✅ Clean Feedback";
+        resultDiv.classList.add("clean");
+        
+        // Show sentiment for clean feedback
+        if (data.sentiment) {
+          sentimentDiv.style.display = "block";
+          
+          if (data.sentiment === "Positive") {
+            sentimentDiv.textContent = "😊 Positive Sentiment";
+            sentimentDiv.classList.add("positive");
+          } else if (data.sentiment === "Negative") {
+            sentimentDiv.textContent = "😔 Negative Sentiment";
+            sentimentDiv.classList.add("negative");
+          } else {
+            sentimentDiv.textContent = "😐 Neutral Sentiment";
+            sentimentDiv.classList.add("neutral");
+          }
+        }
+      } else {
+        resultDiv.textContent = "⚠️ Meaningless / Inappropriate Feedback";
+        resultDiv.classList.add("meaningless");
+      }
+    }
+  </script>
+</body>
+</html>
