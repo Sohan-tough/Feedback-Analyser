@@ -34,13 +34,25 @@ def normalize_repeated_chars(word):
     """
     if not word:
         return word
-        
-    result = [word[0]]
-    for char in word[1:]:
-        if char != result[-1]:
-            result.append(char)
-    
-    return ''.join(result)
+
+    # Allow up to two consecutive repeated characters.
+    # This preserves legitimate double-letter words like 'good', 'better', etc.
+    result_chars = []
+    prev_char = None
+    repeat_count = 0
+
+    for char in word:
+        if char == prev_char:
+            repeat_count += 1
+        else:
+            repeat_count = 1
+            prev_char = char
+
+        # keep the char if it occurs at most twice consecutively
+        if repeat_count <= 2:
+            result_chars.append(char)
+
+    return ''.join(result_chars)
 
 def is_similar_to_any(word, word_list, threshold=0.8):
     """
@@ -93,7 +105,7 @@ def preprocess(text: str):
     )
 
     # Filter stopwords but keep positive and negative sentiment words
-    tokens = [t for t in tokens if t in positive_words or t in negative_words or t not in stopwords]
+    tokens = [t for t in tokens if t not in stopwords or t in positive_words or t in negative_words]
     return tokens
 
 # ==============================
@@ -136,10 +148,10 @@ class Trie:
 # ==============================
 abusive_words= [
     # Hindi/Hinglish
-    "chut", "chu", "chodu","madar", "behenchod",
+    "chut", "chu", "chodu","madar", "behenchod","bhenchod"
     "bhosdike", "randi", "harami", "gand", "lodu","laude","lavde","lauda","loda", "lund",
     "tatti", "gaand", "bhadwe", "bhadwa", "chinal", "kutta", "kuttiya",
-    "kamina", "haram","chud","lendi","saala",
+    "kamina", "haram","chud","lendi","saala","saale",
 
     # English
     "fuck","motherfucker", "bullshit", "bastard",
@@ -190,7 +202,7 @@ patterns = [create_obfuscation_regex(w) for w in abusive_words]
 # 📌 Cell 6: Main Detection Function
 # ==============================
 
-def analyze_sentiment(tokens):
+def analyze_sentiment(tokens, debug: bool = False):
     """
     Analyze sentiment of tokens:
     - Count positive and negative words using fuzzy matching
@@ -198,21 +210,73 @@ def analyze_sentiment(tokens):
     """
     positive_count = 0
     negative_count = 0
-    
+
+    details = []  # per-token debug info
+
     for token in tokens:
-        if is_similar_to_any(token, positive_words):
+        # normalize repeated chars and lowercase (preprocess already lowercases but be safe)
+        norm = normalize_repeated_chars(token.lower())
+
+        token_info = {
+            "token": token,
+            "normalized": norm,
+            "exact_positive": False,
+            "exact_negative": False,
+            "fuzzy_positive_matches": [],
+            "fuzzy_negative_matches": []
+        }
+
+        # Prefer exact normalized matches first to avoid fuzzy false-positives/negatives
+        if norm in positive_words:
             positive_count += 1
-        if is_similar_to_any(token, negative_words):
+            token_info["exact_positive"] = True
+            details.append(token_info)
+            continue
+        if norm in negative_words:
             negative_count += 1
+            token_info["exact_negative"] = True
+            details.append(token_info)
+            continue
+
+        # Fall back to fuzzy matching when no exact match (collect matches for debug)
+        # check positive fuzzies
+        for pw in positive_words:
+            sim = difflib.SequenceMatcher(None, norm, pw).ratio()
+            if sim >= 0.8:
+                token_info["fuzzy_positive_matches"].append({"word": pw, "score": sim})
+
+        # check negative fuzzies
+        for nwrd in negative_words:
+            sim = difflib.SequenceMatcher(None, norm, nwrd).ratio()
+            if sim >= 0.8:
+                token_info["fuzzy_negative_matches"].append({"word": nwrd, "score": sim})
+
+        # increment counts based on fuzzy results
+        if token_info["fuzzy_positive_matches"]:
+            positive_count += 1
+        if token_info["fuzzy_negative_matches"]:
+            negative_count += 1
+
+        details.append(token_info)
     
     if positive_count > negative_count:
-        return "Positive"
+        label = "Positive"
     elif negative_count > positive_count:
-        return "Negative"
+        label = "Negative"
     else:
-        return "Neutral"
+        label = "Neutral"
 
-def is_abusive(text: str) -> dict:
+    if debug:
+        return {
+            "label": label,
+            "positive_count": positive_count,
+            "negative_count": negative_count,
+            "token_details": details,
+        }
+
+    return label
+
+def is_abusive(text: str, debug: bool = False) -> dict:
     tokens = preprocess(text)
     result = {"classification": "", "sentiment": ""}
 
@@ -243,6 +307,13 @@ def is_abusive(text: str) -> dict:
 
     # If feedback is clean, analyze sentiment
     result["classification"] = "Clean"
-    result["sentiment"] = analyze_sentiment(tokens)
+    sentiment_analysis = analyze_sentiment(tokens, debug=debug)
+    result["sentiment"] = sentiment_analysis
+
+    if debug:
+        # include tokens and per-token debug info at top-level for convenience
+        result["tokens"] = tokens
+        if isinstance(sentiment_analysis, dict):
+            result["details"] = sentiment_analysis
     
     return result
