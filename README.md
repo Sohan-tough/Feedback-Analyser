@@ -1,4 +1,4 @@
-## Feedback Classifier (Abusive Content Detection + Sentiment)
+## Feedback Analyzer (Abusive Content Detection + Sentiment)
 
 An interactive Flask web app that classifies user feedback as Abusive or Clean and, for clean feedback, performs a simple sentiment analysis (Positive, Negative, or Neutral). The app handles obfuscated profanity (e.g., f***, f@ck) and repeated characters (e.g., goooood) and includes basic false-positive mitigation via a Trie of abusive prefixes, obfuscation-aware regex, and a small safe-words list.
 
@@ -88,7 +88,7 @@ The server starts in debug mode on `http://127.0.0.1:5000/`.
 ### Ethical Use
 Use this project responsibly. Content moderation decisions can have user impact; always review, disclose limitations, and avoid bias amplification.
 
-### License
-MIT (or your preferred license). Update this section as needed.
+
+
 
 
